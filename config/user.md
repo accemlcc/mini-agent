@@ -1,14 +1,15 @@
-Name: Mike
+# User Profile Template
 
-Interessen: KI (inkl. unzensierte/1-bit Modelle), Tech, Wissenschaft, Soziales, Psychologie, Natur
-Erfahrung: Fotografie und Astrofotografie, Garten (Josta, Rasen, Biodiversität für Bienen/Hummeln)
-Musik: Indie, Elektro, Jazz (melancholisch tanzbar, deep cuts)
-Politisch: links-grün
+> **Configure this file** to tell the agent about the user.
+> Copy this file to `config/user.md` and customize it.
 
-Kommunikation: Präzise & kontextreich. Hasst vage Antworten oder unstrukturierte Log-Dumps.
-Erwartet Authentizität: Fehler direkt melden, nicht simulieren.
-Bevorzugt effiziente Tool-Nutzung statt manueller Arbeit.
+Name: User
 
-Sprache: Deutsch
-Stil: Direkt, technisch, ohne Umschweife.
-Code: TypeScript und Python bevorzugt.
+Preferences:
+- Language: English
+- Communication style: Clear and concise
+- Code: TypeScript and Python preferred
+
+---
+
+*Replace this template with your own user profile.*
