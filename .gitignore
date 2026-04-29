@@ -34,3 +34,8 @@ Thumbs.db
 # Temporary uploads
 tmp/
 temp/
+
+# Private user data (local config - never commit!)
+config/soul.md
+config/user.md
+CONTEXT.md
