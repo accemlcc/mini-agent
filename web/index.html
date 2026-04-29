@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Mini-Agent</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h2>Sessions</h2>
+        <button id="new-session" title="Neue Session">+</button>
+      </div>
+      <ul id="session-list"></ul>
+    </aside>
+    <div id="sidebar-overlay"></div>
+    <div id="main-area">
+      <header>
+        <div class="header-left">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button id="menu-btn" style="display: none;">☰</button>
+            <h1>Mini-Agent</h1>
+          </div>
+          <span id="session-info">Keine Session</span>
+        </div>
+        <span id="status" class="status-idle">Bereit</span>
+      </header>
+      <main id="chat"></main>
+      <footer>
+        <div id="upload-preview"></div>
+        <div class="input-row">
+          <input type="file" id="file-input" multiple accept="image/*,.txt,.md,.json,.csv,.py,.ts,.js,.html,.css" style="display: none;">
+          <button id="upload-btn" title="Datei hochladen">📎</button>
+          <textarea id="input" rows="1" placeholder="Nachricht..."></textarea>
+          <button id="send">Senden</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+  <script src="marked.min.js?v=4"></script>
+  <script src="purify.min.js?v=4"></script>
+  <script src="app.js?v=4"></script>
+</body>
+</html>
