@@ -15,6 +15,7 @@ const uploadPreview = document.getElementById('upload-preview');
 let isBusy = false;
 let currentMsg = null;
 let pendingFiles = [];
+let lastUsage = null;
 
 // --- Auto-resize textarea ---
 function autoResize(el) {
@@ -204,11 +205,32 @@ async function startNewSession() {
 
 // --- Chat ---
 
-function addMsg(text, cls = 'assistant', imageUrl = null) {
+function addMsg(text, cls = 'assistant', imageUrl = null, isThink = false) {
   const div = document.createElement('div');
   div.className = 'msg ' + cls;
   div.dataset.rawText = text || '';
-  div.innerHTML = renderMarkdown(text);
+
+  if (isThink) {
+    div.innerHTML = `
+      <div class="think-header">
+        <span class="think-toggle">▶</span>
+        <span class="think-label">💭 Denkprozess</span>
+      </div>
+      <div class="think-content collapsed"></div>
+    `;
+    const contentEl = div.querySelector('.think-content');
+    contentEl.textContent = text;
+
+    div.querySelector('.think-header').addEventListener('click', () => {
+      const toggle = div.querySelector('.think-toggle');
+      const content = div.querySelector('.think-content');
+      const isCollapsed = content.classList.toggle('collapsed');
+      toggle.textContent = isCollapsed ? '▶' : '▼';
+    });
+  } else {
+    div.innerHTML = renderMarkdown(text);
+  }
+
   if (imageUrl) {
     const img = document.createElement('img');
     img.src = imageUrl;
@@ -224,14 +246,24 @@ function appendToMsg(el, text) {
   el.dataset.rawText = (el.dataset.rawText || '') + text;
   // Während Streaming: rohen Text anzeigen (schneller, kein Flackern)
   // Markdown-Rendering passiert erst bei done
-  el.textContent = el.dataset.rawText;
+  const contentEl = el.querySelector('.think-content');
+  if (contentEl) {
+    contentEl.textContent = el.dataset.rawText;
+  } else {
+    el.textContent = el.dataset.rawText;
+  }
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function finalizeMsg(el) {
   // Nach Streaming: Markdown rendern
   el.classList.remove('streaming');
-  el.innerHTML = renderMarkdown(el.dataset.rawText || '');
+  const contentEl = el.querySelector('.think-content');
+  if (contentEl) {
+    contentEl.innerHTML = renderMarkdown(el.dataset.rawText || '');
+  } else {
+    el.innerHTML = renderMarkdown(el.dataset.rawText || '');
+  }
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
@@ -245,6 +277,10 @@ function setBusy(b) {
 async function send() {
   const text = inputEl.value.trim();
   if ((!text && pendingFiles.length === 0) || isBusy) return;
+  
+  // Token-Verbrauch zurücksetzen
+  lastUsage = null;
+  renderUsage();
   
   // Zeige User-Nachricht an
   if (text) {
@@ -326,7 +362,7 @@ function handleEvent(ev) {
   switch (ev.type) {
     case 'thought':
       if (!document.querySelector('.msg.think:last-child')) {
-        addMsg('💭 ' + ev.data, 'think');
+        addMsg(ev.data, 'think', null, true);
       } else {
         appendToMsg(document.querySelector('.msg.think:last-child'), ev.data);
       }
@@ -354,6 +390,10 @@ function handleEvent(ev) {
         appendToMsg(currentMsg, ev.data);
       }
       break;
+    case 'usage':
+      lastUsage = ev.usage;
+      renderUsage();
+      break;
     case 'done':
       if (currentMsg) {
         finalizeMsg(currentMsg);
@@ -365,6 +405,23 @@ function handleEvent(ev) {
       currentMsg = null;
       break;
   }
+}
+
+function renderUsage() {
+  const el = document.getElementById('token-usage');
+  if (!el) return;
+  if (!lastUsage) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  const { prompt_tokens, completion_tokens, total_tokens } = lastUsage;
+  el.innerHTML = `
+    <span class="token-pill" title="Prompt-Tokens">📝 ${prompt_tokens.toLocaleString('de-DE')}</span>
+    <span class="token-pill" title="Generierte Tokens">✨ ${completion_tokens.toLocaleString('de-DE')}</span>
+    <span class="token-pill" title="Gesamt">Σ ${total_tokens.toLocaleString('de-DE')}</span>
+  `;
+  el.style.display = 'flex';
 }
 
 function formatResult(result) {

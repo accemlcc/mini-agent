@@ -64,6 +64,7 @@ export async function chatCompletion(
     temperature: 0.2,
     max_tokens: 2048,
     stream,
+    stream_options: { include_usage: true },
   };
 
   const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
@@ -83,6 +84,7 @@ export async function chatCompletion(
     let fullContent = "";
     let reasoningContent = "";
     let toolCalls: ToolCall[] | undefined;
+    let usage: LLMResponse["usage"] | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -95,6 +97,11 @@ export async function chatCompletion(
         if (data === "[DONE]") continue;
         try {
           const parsed = JSON.parse(data);
+          // usage chunk (end of stream, often has empty choices array)
+          if (parsed.usage) {
+            usage = parsed.usage;
+            continue;
+          }
           const delta = parsed.choices?.[0]?.delta;
           if (delta?.content) {
             fullContent += delta.content;
@@ -135,6 +142,7 @@ export async function chatCompletion(
         reasoning_content: reasoningContent,
         tool_calls: toolCalls,
       },
+      usage,
     };
   }
 

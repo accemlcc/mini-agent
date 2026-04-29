@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "start:bg": "./scripts/start.sh",
+    "stop": "./scripts/stop.sh",
+    "restart": "./scripts/restart.sh"
   },
   "dependencies": {
     "express": "^5.1.0",

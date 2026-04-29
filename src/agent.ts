@@ -4,11 +4,12 @@ import { TOOLS, executeTool } from "./tools.js";
 import { saveSession, loadSession, getCurrentSessionId, type Session } from "./session-store.js";
 
 export interface AgentEvent {
-  type: "thought" | "tool_call" | "tool_result" | "content" | "done" | "error";
+  type: "thought" | "tool_call" | "tool_result" | "content" | "usage" | "done" | "error";
   data?: string;
   toolName?: string;
   result?: unknown;
   error?: string;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
 export async function* runAgent(userMessage: string, existingMessages?: ChatMessage[]): AsyncGenerator<AgentEvent> {
@@ -102,6 +103,11 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
 
       // Stream ist fertig, Response analysieren
       const response = await completionPromise;
+
+      // Token-Verbrauch ausgeben (falls vom Backend geliefert)
+      if (response.usage) {
+        yield { type: "usage", usage: response.usage };
+      }
 
       // Prüfe auf HTTP-Fehler oder ungültige Antwort
       if (!response || !response.message) {
