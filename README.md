@@ -69,12 +69,14 @@ mini_agent/
 | `list_dir` | List directory contents |
 | `web_search` | Internet search via SearXNG |
 | `web_fetch` | Load web page as text |
+| `exec_command` | Run shell commands (with safety blacklist) |
 
 ### Web Interface
 - **Dark design** — Desktop + Mobile
 - **File upload** — images and text files
 - **Image preview** — shown before sending
 - **Session sidebar** — always visible on desktop, overlay on mobile
+- **Session deletion** — delete sessions from the sidebar
 
 ---
 
@@ -140,6 +142,8 @@ http://localhost:3000
 - [x] File upload — images and text files
 - [x] Mobile UI — responsive design with hamburger menu
 - [x] Markdown rendering with syntax highlighting
+- [x] Session deletion from sidebar
+- [x] Shell command execution (`exec_command`)
 - [x] Robust error handling
 
 ---
@@ -161,7 +165,6 @@ http://localhost:3000
 
 ### Short-term
 - **Session export/import** as Markdown or JSON
-- **`shell_exec` tool** — shell commands with confirmation
 - **Git tools** — `git_status`, `git_diff`, `git_commit`
 
 ### Medium-term
