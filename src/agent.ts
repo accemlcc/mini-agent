@@ -37,8 +37,10 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
     }
   }
 
-  // Nutzernachricht anhängen
-  messages.push({ role: "user", content: userMessage });
+  // Nutzernachricht anhängen (nur wenn der Caller sie nicht schon hinzugefügt hat)
+  if (!existingMessages) {
+    messages.push({ role: "user", content: userMessage });
+  }
 
   const MAX_STEPS = 5;
 

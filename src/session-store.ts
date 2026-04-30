@@ -1,4 +1,4 @@
-import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from "fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import type { ChatMessage } from "./llm.js";
@@ -82,7 +82,7 @@ export function deleteSession(sessionId: string): boolean {
   const path = getSessionPath(sessionId);
   if (!existsSync(path)) return false;
   try {
-    import("fs").then((fs) => fs.unlinkSync(path));
+    unlinkSync(path);
     return true;
   } catch {
     return false;

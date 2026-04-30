@@ -152,22 +152,43 @@ function renderSessionList(sessions, currentId) {
   sessions.forEach(session => {
     const li = document.createElement('li');
     li.className = session.id === currentId ? 'active' : '';
+    li.dataset.sessionId = session.id;
     
     const date = new Date(session.updatedAt).toLocaleString('de-DE', {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
     
     li.innerHTML = `
-      <div class="session-name">${session.id.slice(0, 8)}...</div>
-      <div class="session-meta">${date} · ${session.messageCount} Nachrichten</div>
+      <div class="session-row">
+        <div class="session-info">
+          <div class="session-name">${session.id.slice(0, 8)}...</div>
+          <div class="session-meta">${date} · ${session.messageCount} Nachrichten</div>
+        </div>
+        ${session.id !== currentId ? '<button class="session-delete" title="Session löschen">×</button>' : ''}
+      </div>
     `;
     
-    li.addEventListener('click', () => {
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.session-delete')) return;
       switchSession(session.id);
       if (isMobile()) closeSidebar();
     });
     sessionListEl.appendChild(li);
   });
+}
+
+async function deleteSession(id) {
+  try {
+    const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+    const data = await safeJson(res);
+    if (res.ok) {
+      loadSessions();
+    } else {
+      addMsg('Fehler: ' + (data.error || 'Session konnte nicht gelöscht werden'), 'error');
+    }
+  } catch (err) {
+    addMsg('Fehler beim Löschen: ' + err.message, 'error');
+  }
 }
 
 async function switchSession(id) {
@@ -461,6 +482,17 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 newSessionBtn.addEventListener('click', startNewSession);
+
+sessionListEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.session-delete');
+  if (!btn) return;
+  e.stopPropagation();
+  const li = btn.closest('li');
+  const sessionId = li?.dataset.sessionId;
+  if (sessionId) {
+    deleteSession(sessionId);
+  }
+});
 
 // Init
 loadSessions();
