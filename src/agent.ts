@@ -65,7 +65,7 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
     messages.push({ role: "user", content: userMessage });
   }
 
-  const MAX_STEPS = 5;
+  const MAX_STEPS = 10;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     try {
