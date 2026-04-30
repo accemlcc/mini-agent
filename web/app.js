@@ -13,6 +13,7 @@ const uploadBtn = document.getElementById('upload-btn');
 const uploadPreview = document.getElementById('upload-preview');
 
 let isBusy = false;
+let abortController = null;
 let currentMsg = null;
 let pendingFiles = [];
 let lastUsage = null;
@@ -98,6 +99,49 @@ function renderUploadPreview() {
   });
 }
 
+// --- Drag & Drop Upload ---
+const mainArea = document.getElementById('main-area');
+
+mainArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  mainArea.classList.add('drag-over');
+});
+
+mainArea.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!mainArea.contains(e.relatedTarget)) {
+    mainArea.classList.remove('drag-over');
+  }
+});
+
+mainArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  mainArea.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files);
+  files.forEach(file => pendingFiles.push(file));
+  renderUploadPreview();
+});
+
+// --- Clipboard Image Paste ---
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      if (blob) {
+        const ext = item.type.split('/')[1] || 'png';
+        pendingFiles.push(new File([blob], `clipboard-${Date.now()}.${ext}`, { type: item.type }));
+        renderUploadPreview();
+      }
+    }
+  }
+});
+
 // --- Markdown Rendering ---
 function renderMarkdown(text) {
   if (!text) return '';
@@ -110,6 +154,29 @@ function renderMarkdown(text) {
     div.textContent = text;
     return div.innerHTML;
   }
+}
+
+// --- Copy Button für Code-Blocks ---
+function addCopyButtons(el) {
+  el.querySelectorAll('pre code').forEach(code => {
+    const pre = code.parentElement;
+    if (pre.querySelector('.copy-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '📋';
+    btn.title = 'Code kopieren';
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '📋'; }, 1500);
+      }).catch(() => {
+        btn.textContent = '❌';
+        setTimeout(() => { btn.textContent = '📋'; }, 1500);
+      });
+    });
+    pre.style.position = 'relative';
+    pre.appendChild(btn);
+  });
 }
 
 // --- Safe JSON parse helper ---
@@ -259,6 +326,7 @@ function addMsg(text, cls = 'assistant', imageUrl = null, isThink = false) {
     div.appendChild(img);
   }
   chatEl.appendChild(div);
+  if (!isThink) addCopyButtons(div);
   chatEl.scrollTop = chatEl.scrollHeight;
   return div;
 }
@@ -285,14 +353,23 @@ function finalizeMsg(el) {
   } else {
     el.innerHTML = renderMarkdown(el.dataset.rawText || '');
   }
+  addCopyButtons(el);
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function setBusy(b) {
   isBusy = b;
-  sendBtn.disabled = b;
+  sendBtn.textContent = b ? '⏹' : 'Senden';
+  sendBtn.className = b ? 'btn-stop' : '';
   statusEl.textContent = b ? 'Denkt...' : 'Bereit';
   statusEl.className = b ? 'status-busy' : 'status-idle';
+}
+
+function stop() {
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
 }
 
 async function send() {
@@ -328,9 +405,11 @@ async function send() {
     if (text) formData.append('message', text);
     pendingFiles.forEach(file => formData.append('files', file));
     
+    abortController = new AbortController();
     const response = await fetch('/api/chat', {
       method: 'POST',
       body: formData,
+      signal: abortController.signal,
     });
 
     pendingFiles = [];
@@ -372,9 +451,14 @@ async function send() {
       }
     }
   } catch (err) {
-    addMsg('❌ Netzwerkfehler: ' + err.message, 'error');
-    console.error('send() error:', err);
+    if (err.name === 'AbortError') {
+      addMsg('⏹ Abgebrochen.', 'system');
+    } else {
+      addMsg('❌ Netzwerkfehler: ' + err.message, 'error');
+      console.error('send() error:', err);
+    }
   } finally {
+    abortController = null;
     setBusy(false);
   }
 }
@@ -473,7 +557,10 @@ function formatBytes(bytes) {
 
 // --- Event Listeners ---
 
-sendBtn.addEventListener('click', send);
+sendBtn.addEventListener('click', () => {
+  if (isBusy) stop();
+  else send();
+});
 inputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
