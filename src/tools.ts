@@ -1,10 +1,12 @@
-import { spawn } from "child_process";
+import { spawn, exec } from "child_process";
+import { promisify } from "util";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import type { ToolDefinition } from "./llm.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
+const execAsync = promisify(exec);
 
 export interface ToolResult {
   name: string;
@@ -106,6 +108,23 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "exec_command",
+      description: "Führt einen Shell-Befehl im Projektverzeichnis aus. Nützlich für Systemabfragen (date, uname, ps), um neue Tools zu erstellen oder existierende zu testen. Darf keine interaktiven Befehle (vim, nano, less) oder gefährlichen Operationen (sudo, rm -rf /, rm -rf ~, mkfs, dd) enthalten.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "Der auszuführende Shell-Befehl (z. B. 'date', 'uname -a', 'ls -la src/').",
+          },
+        },
+        required: ["command"],
+      },
+    },
+  },
 ];
 
 function runPythonTool(scriptName: string, args: Record<string, unknown>): Promise<unknown> {
@@ -163,6 +182,36 @@ export async function executeTool(name: string, args: string): Promise<ToolResul
       result = await runPythonTool("web_search.py", parsedArgs);
     } else if (name === "web_fetch") {
       result = await runPythonTool("web_fetch.py", parsedArgs);
+    } else if (name === "exec_command") {
+      const cmd = String(parsedArgs.command || "").trim();
+      if (!cmd) {
+        return { name, result: null, error: "Kein Befehl angegeben." };
+      }
+
+      // Blacklist für gefährliche Befehle/Substrings
+      const forbidden = [
+        "sudo", "su -", "su ",
+        "rm -rf /", "rm -rf ~/", "rm -rf ~ ", "rm -rf $HOME",
+        "mkfs", "dd if=/dev/zero", "dd if=/dev/random",
+        "shutdown", "reboot", "poweroff", "halt",
+        "> /dev/sda", ">/dev/sda",
+        ":(){ :|:& };:", // Fork Bomb
+      ];
+      const lowerCmd = cmd.toLowerCase();
+      const blocked = forbidden.find((f) => lowerCmd.includes(f.toLowerCase()));
+      if (blocked) {
+        return { name, result: null, error: `Befehl enthält verbotenen Inhalt: "${blocked}"` };
+      }
+
+      const { stdout, stderr } = await execAsync(cmd, {
+        cwd: ROOT,
+        timeout: 30000,
+        maxBuffer: 1024 * 1024, // 1 MB
+      });
+      result = {
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      };
     } else {
       return { name, result: null, error: `Unbekanntes Tool: ${name}` };
     }
