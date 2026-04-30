@@ -12,6 +12,29 @@ export interface AgentEvent {
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
+/**
+ * Ersetzt Base64-Bilder in Nachrichten durch Text-Platzhalter.
+ * Nachdem ein Bild einmal vom Vision Encoder verarbeitet wurde,
+ * bleibt es im KV-Cache des Modells. Wir müssen es nicht erneut senden.
+ */
+function replaceImagesWithPlaceholder(msg: ChatMessage): ChatMessage {
+  if (!msg.content || typeof msg.content === "string") {
+    return msg;
+  }
+
+  const newContent = msg.content.map((part) => {
+    if (part.type === "image_url") {
+      return {
+        type: "text" as const,
+        text: "[Bild zuvor geteilt]",
+      };
+    }
+    return part;
+  });
+
+  return { ...msg, content: newContent };
+}
+
 export async function* runAgent(userMessage: string, existingMessages?: ChatMessage[]): AsyncGenerator<AgentEvent> {
   const sessionId = getCurrentSessionId();
   const session: Session = loadSession(sessionId) || {
@@ -172,7 +195,11 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
       messages.push({ role: "assistant", content: finalContent });
 
       // Session speichern (alles außer dem System-Prompt am Anfang)
-      session.messages = messages.filter((_, idx) => idx !== 0 || messages[0]?.role !== "system");
+      // WICHTIG: Base64-Bilder durch Platzhalter ersetzen, um wiederholte
+      // Bildverarbeitung bei jedem Turn zu vermeiden
+      session.messages = messages
+        .filter((_, idx) => idx !== 0 || messages[0]?.role !== "system")
+        .map((msg) => replaceImagesWithPlaceholder(msg));
       saveSession(session);
 
       yield { type: "done" };
@@ -183,7 +210,9 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
       if (err.cause) errorMsg += ` (Ursache: ${err.cause})`;
       
       // Auch bei Fehlern: bisherige Konversation speichern
-      session.messages = messages.filter((_, idx) => idx !== 0 || messages[0]?.role !== "system");
+      session.messages = messages
+        .filter((_, idx) => idx !== 0 || messages[0]?.role !== "system")
+        .map((msg) => replaceImagesWithPlaceholder(msg));
       if (session.messages.length > 0) {
         saveSession(session);
       }
