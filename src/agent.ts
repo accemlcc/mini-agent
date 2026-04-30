@@ -149,6 +149,7 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
           role: "assistant",
           content: msg.content || undefined,
           tool_calls: msg.tool_calls,
+          reasoning_content: reasoning || undefined,
         });
 
         // Tool-Calls ausführen
@@ -191,8 +192,12 @@ export async function* runAgent(userMessage: string, existingMessages?: ChatMess
         return;
       }
 
-      // Finale Antwort speichern
-      messages.push({ role: "assistant", content: finalContent });
+      // Finale Antwort speichern (inkl. reasoning_content für korrekten Cache/Context)
+      messages.push({
+        role: "assistant",
+        content: finalContent,
+        reasoning_content: reasoning || undefined,
+      });
 
       // Session speichern (alles außer dem System-Prompt am Anfang)
       // WICHTIG: Base64-Bilder durch Platzhalter ersetzen, um wiederholte
