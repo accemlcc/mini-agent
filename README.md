@@ -127,23 +127,24 @@ http://localhost:3000
 
 ---
 
-## Current State
+## Current State — v1.0 (Feature Complete)
+
+The core is intentionally **stable and complete**. No new major features are planned — only bugfixes, security updates, and compatibility patches.
 
 - [x] Local LLM chat via OpenAI-compatible API
-- [x] Tool calling with `read_file`, `write_file`, `list_dir`
-- [x] Web search via SearXNG (`web_search`)
-- [x] Web fetch — load pages as text (`web_fetch`)
+- [x] Tool calling with `read_file`, `write_file`, `list_dir`, `exec_command`
+- [x] Web search via SearXNG (`web_search`) + web fetch (`web_fetch`)
 - [x] ReAct-Loop (tool call → result → answer)
 - [x] SSE streaming to the web interface (token-by-token)
-- [x] Display of reasoning, tool calls, and results
+- [x] Collapsible reasoning display (▶/▼)
+- [x] Token usage display (prompt / completion / total)
 - [x] `soul.md` and `user.md` as configurable system prompts
 - [x] Session persistence — each session saved as JSON
-- [x] Session management — sidebar with sessions
-- [x] File upload — images and text files
+- [x] Session management — sidebar with switch, new, delete
+- [x] File upload — images and text files (click, drag & drop, clipboard paste)
 - [x] Mobile UI — responsive design with hamburger menu
-- [x] Markdown rendering with syntax highlighting
-- [x] Session deletion from sidebar
-- [x] Shell command execution (`exec_command`)
+- [x] Markdown rendering with syntax highlighting + copy buttons
+- [x] Stop button during generation
 - [x] Robust error handling
 
 ---
@@ -161,16 +162,24 @@ http://localhost:3000
 
 ---
 
-## What could come next?
+## Future Ideas (Low Priority)
 
-### Short-term
+These are **not planned for v1.x** — kept here as potential directions if ever needed.
+
+### Chat Memory (Simple RAG)
+- Automatically index past chat sessions into a searchable memory
+- Allow the model to reference earlier conversations: *"Hey, 2 weeks ago we discussed X..."*
+- Keep it simple: no vector DB complexity, just indexed text search
+
+### Project Mode
+- Per-project folders (`projects/my-project/`) with:
+  - `context.md` — project-specific instructions
+  - `data/` — files automatically indexed for the model
+  - Dedicated sessions tied to a project
+
+### Other Ideas
 - **Session export/import** as Markdown or JSON
 - **Git tools** — `git_status`, `git_diff`, `git_commit`
-
-### Medium-term
-- **`python_exec` tool** — execute Python scripts
-- **Vision** — upload and analyze images
-- **Multi-agent mode** — specialized agents
 
 ---
 
