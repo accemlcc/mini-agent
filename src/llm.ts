@@ -61,8 +61,10 @@ export async function chatCompletion(
     model: LLM_MODEL,
     messages,
     tools,
-    temperature: 0.2,
-    max_tokens: 2048,
+    temperature: 0.7,
+    frequency_penalty: 0.3,
+    presence_penalty: 0.1,
+    // max_tokens bewusst weggelassen → Server-Default greift (oft höher/handelbarer)
     stream,
     stream_options: { include_usage: true },
   };
