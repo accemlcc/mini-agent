@@ -159,6 +159,7 @@ The core is intentionally **stable and complete**. No new major features are pla
 | Session history lost | No persistence | Each session saved as JSON under `sessions/` |
 | Orphaned tool calls after reload | Session not loaded correctly | History restored 1:1 from JSON |
 | "Tag A, B, C becomes Tag AC" | Context compression in other frameworks | **No compression** — 1:1 pass-through |
+| KV cache lost on hybrid models (Qwen3.5/3.6 MoE, Gemma 4) | llama.cpp invalidates recurrent state checkpoints | Local patch: [ggml-org/llama.cpp#21831](https://github.com/ggml-org/llama.cpp/issues/21831) — keeps cache in memory, no re-processing |
 
 ---
 
