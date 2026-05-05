@@ -1,7 +1,7 @@
 import { getSystemPrompt } from "./config.js";
 import { chatCompletion, type ChatMessage } from "./llm.js";
 import { TOOLS, executeTool } from "./tools.js";
-import { saveSession, loadSession, getCurrentSessionId, type Session } from "./session-store.js";
+import { saveSession, loadSession, getCurrentSessionId, type Session } from "./telegram-session-store.js";
 
 export interface AgentEvent {
   type: "thought" | "tool_call" | "tool_result" | "content" | "usage" | "done" | "error";

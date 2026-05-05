@@ -5,9 +5,9 @@ import type { ChatMessage } from "./llm.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
-const SESSIONS_DIR = join(ROOT, "sessions");
+const SESSIONS_DIR = join(ROOT, "telegram-sessions");
 
-// Stelle sicher, dass das sessions-Verzeichnis existiert
+// Stelle sicher, dass das telegram-sessions-Verzeichnis existiert
 if (!existsSync(SESSIONS_DIR)) {
   mkdirSync(SESSIONS_DIR, { recursive: true });
 }

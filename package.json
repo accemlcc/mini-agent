@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "telegram": "tsx src/telegram.ts",
+    "telegram:dev": "tsx watch src/telegram.ts",
     "start:bg": "./scripts/start.sh",
     "stop": "./scripts/stop.sh",
     "restart": "./scripts/restart.sh"
   },
   "dependencies": {
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",

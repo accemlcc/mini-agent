@@ -15,6 +15,7 @@ logs/
 
 # Session data (user content!)
 sessions/
+telegram-sessions/
 
 # Runtime
 .env
