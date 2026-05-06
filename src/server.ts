@@ -5,6 +5,7 @@ import multer from "multer";
 import { runAgent, getCurrentSessionMessages } from "./agent.js";
 import { getSystemPrompt } from "./config.js";
 import type { ContentPart } from "./llm.js";
+import { extractPdfText } from "./pdf-parser.js";
 import {
   listSessions,
   loadSession,
@@ -123,6 +124,19 @@ app.post("/api/chat", upload.array("files", 5), async (req, res) => {
               detail: "auto",
             },
           });
+        } else if (file.mimetype === "application/pdf" || file.originalname?.toLowerCase().endsWith(".pdf")) {
+          try {
+            const text = await extractPdfText(file.buffer);
+            contentParts.push({
+              type: "text",
+              text: `[PDF: ${file.originalname}]\n${text}`,
+            });
+          } catch (err: any) {
+            contentParts.push({
+              type: "text",
+              text: `[PDF: ${file.originalname}]\n❌ Fehler beim Lesen des PDFs: ${err.message}`,
+            });
+          }
         } else {
           // Text-Dateien: Inhalt als Text einfügen
           const text = file.buffer.toString("utf-8");

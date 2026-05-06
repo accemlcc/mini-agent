@@ -12,6 +12,7 @@ import {
   type Session,
 } from './telegram-session-store.js';
 import type { ChatMessage, ContentPart } from './llm.js';
+import { extractPdfText } from './pdf-parser.js';
 import dotenv from 'dotenv';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -255,15 +256,26 @@ bot.on(message('document'), async (ctx) => {
       textMimeTypes.some((t) => doc.mime_type?.startsWith(t)) ||
       /\.(txt|md|json|js|ts|jsx|tsx|py|sh|yaml|yml|css|html|xml|csv|log)$/i.test(doc.file_name || '');
 
-    if (!isText) {
+    const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.file_name || '');
+
+    if (!isText && !isPdf) {
       await ctx.reply(
-        `📎 Datei erhalten: *${doc.file_name}* (${(doc.file_size / 1024).toFixed(1)} KB)\nIch kann aktuell nur Text-Dateien verarbeiten.`,
+        `📎 Datei erhalten: *${doc.file_name}* (${((doc.file_size ?? 0) / 1024).toFixed(1)} KB)\nIch kann aktuell nur Text- und PDF-Dateien verarbeiten.`,
         { parse_mode: 'Markdown' }
       );
       return;
     }
 
-    fileContent = buffer.toString('utf-8');
+    if (isPdf) {
+      try {
+        fileContent = await extractPdfText(buffer);
+      } catch (err: any) {
+        await ctx.reply(`❌ PDF konnte nicht gelesen werden: ${err.message}`);
+        return;
+      }
+    } else {
+      fileContent = buffer.toString('utf-8');
+    }
 
     const MAX_CHARS = 50000;
     if (fileContent.length > MAX_CHARS) {
