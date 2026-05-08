@@ -69,11 +69,18 @@ export async function chatCompletion(
     stream_options: { include_usage: true },
   };
 
+  // 60s Timeout verhindert hängende Requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: controller.signal,
   });
+
+  clearTimeout(timeoutId);
 
   if (!res.ok) {
     const text = await res.text();
