@@ -7,6 +7,7 @@ const ROOT = join(__dirname, "..");
 
 export const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:8091";
 export const LLM_MODEL = process.env.LLM_MODEL || "default-model";
+export const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "120", 10) * 1000;
 
 function isTemplate(content: string): boolean {
   return content.includes("Template") || content.includes("Configure this file") || content.includes("Replace this template");

@@ -1,4 +1,4 @@
-import { LLM_BASE_URL, LLM_MODEL } from "./config.js";
+import { LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT } from "./config.js";
 
 export interface TextContentPart {
   type: "text";
@@ -69,9 +69,8 @@ export async function chatCompletion(
     stream_options: { include_usage: true },
   };
 
-  // 60s Timeout verhindert hängende Requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
 
   const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
     method: "POST",

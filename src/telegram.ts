@@ -40,7 +40,7 @@ if (ALLOWED_CHATS.length === 0) {
   console.log(`🔒 Erlaubte Chats: ${ALLOWED_CHATS.join(', ')}`);
 }
 
-const bot = new Telegraf(BOT_TOKEN);
+const bot = new Telegraf(BOT_TOKEN, { handlerTimeout: 180_000 });
 
 // ─── Auth-Middleware ────────────────────────────────────────────
 bot.use(async (ctx, next) => {
