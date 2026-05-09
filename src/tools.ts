@@ -56,6 +56,31 @@ export const TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "edit_file",
+      description: "Editiert eine existierende Datei präzise: ersetzt old_string durch new_string. old_string muss exakt einmal in der Datei vorkommen. NIE zum Erstellen neuer Dateien verwenden – dafür write_file nutzen.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Absoluter oder relativer Pfad zur Datei.",
+          },
+          old_string: {
+            type: "string",
+            description: "Der exakte Text, der ersetzt werden soll. Muss eindeutig in der Datei sein.",
+          },
+          new_string: {
+            type: "string",
+            description: "Der neue Text, der eingefügt werden soll.",
+          },
+        },
+        required: ["path", "old_string", "new_string"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_dir",
       description: "Listet den Inhalt eines Verzeichnisses auf. Zeigt Dateien und Unterverzeichnisse mit Größe und Änderungsdatum.",
       parameters: {
@@ -176,6 +201,8 @@ export async function executeTool(name: string, args: string): Promise<ToolResul
       result = await runPythonTool("read.py", parsedArgs);
     } else if (name === "write_file") {
       result = await runPythonTool("write.py", parsedArgs);
+    } else if (name === "edit_file") {
+      result = await runPythonTool("edit.py", parsedArgs);
     } else if (name === "list_dir") {
       result = await runPythonTool("list_dir.py", parsedArgs);
     } else if (name === "web_search") {
