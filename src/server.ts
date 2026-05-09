@@ -11,7 +11,6 @@ import {
   loadSession,
   saveSession,
   deleteSession,
-  getSessionMessages,
   generateSessionId,
 } from "./session-store.js";
 
@@ -115,10 +114,22 @@ app.post("/api/chat", upload.array("files", 5), async (req, res) => {
   };
 
   try {
-    const existingMessages = getSessionMessages(sessionId);
-    const messages: ChatMessage[] = [{ role: "system" as const, content: getSystemPrompt() }];
-    if (existingMessages.length > 0) {
-      messages.push(...existingMessages);
+    const session = loadSession(sessionId);
+    if (!session) {
+      sendEvent({ type: "error", error: "Session nicht gefunden." });
+      res.end();
+      return;
+    }
+
+    // System-Prompt einmalig pro Session generieren und cachen
+    if (!session.systemPrompt) {
+      session.systemPrompt = getSystemPrompt();
+      saveSession(session);
+    }
+
+    const messages: ChatMessage[] = [{ role: "system" as const, content: session.systemPrompt }];
+    if (session.messages.length > 0) {
+      messages.push(...session.messages);
     }
 
     // User-Nachricht bauen (text + optional Bilder)
