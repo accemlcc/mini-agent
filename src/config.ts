@@ -9,6 +9,10 @@ export const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:8091";
 export const LLM_MODEL = process.env.LLM_MODEL || "default-model";
 export const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "120", 10) * 1000;
 
+export const LLM_TEMPERATURE = parseFloat(process.env.LLM_TEMPERATURE || "0.7");
+export const LLM_FREQUENCY_PENALTY = parseFloat(process.env.LLM_FREQUENCY_PENALTY || "0.6");
+export const LLM_PRESENCE_PENALTY = parseFloat(process.env.LLM_PRESENCE_PENALTY || "0.3");
+
 function isTemplate(content: string): boolean {
   return content.includes("Template") || content.includes("Configure this file") || content.includes("Replace this template");
 }

@@ -18,15 +18,12 @@ let currentMsg = null;
 let pendingFiles = [];
 let lastUsage = null;
 
-// --- Auto-resize textarea ---
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 150) + 'px';
 }
 
 inputEl.addEventListener('input', () => autoResize(inputEl));
-
-// --- Mobile Sidebar Toggle ---
 
 function isMobile() {
   return window.innerWidth <= 768;
@@ -59,8 +56,6 @@ if (sidebarOverlay) {
 window.addEventListener('resize', updateMenuBtn);
 updateMenuBtn();
 
-// --- File Upload ---
-
 uploadBtn.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (e) => {
@@ -77,7 +72,6 @@ function renderUploadPreview() {
   pendingFiles.forEach((file, idx) => {
     const div = document.createElement('div');
     div.className = 'upload-thumb';
-    
     if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = URL.createObjectURL(file);
@@ -85,7 +79,6 @@ function renderUploadPreview() {
     } else {
       div.textContent = file.name.slice(0, 8) + '...';
     }
-    
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove';
     removeBtn.textContent = '×';
@@ -93,39 +86,21 @@ function renderUploadPreview() {
       pendingFiles.splice(idx, 1);
       renderUploadPreview();
     });
-    
     div.appendChild(removeBtn);
     uploadPreview.appendChild(div);
   });
 }
 
-// --- Drag & Drop Upload ---
 const mainArea = document.getElementById('main-area');
-
-mainArea.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  mainArea.classList.add('drag-over');
-});
-
-mainArea.addEventListener('dragleave', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  if (!mainArea.contains(e.relatedTarget)) {
-    mainArea.classList.remove('drag-over');
-  }
-});
-
+mainArea.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); mainArea.classList.add('drag-over'); });
+mainArea.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); if (!mainArea.contains(e.relatedTarget)) mainArea.classList.remove('drag-over'); });
 mainArea.addEventListener('drop', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  mainArea.classList.remove('drag-over');
+  e.preventDefault(); e.stopPropagation(); mainArea.classList.remove('drag-over');
   const files = Array.from(e.dataTransfer.files);
   files.forEach(file => pendingFiles.push(file));
   renderUploadPreview();
 });
 
-// --- Clipboard Image Paste ---
 document.addEventListener('paste', (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
@@ -142,7 +117,6 @@ document.addEventListener('paste', (e) => {
   }
 });
 
-// --- Markdown Rendering ---
 function renderMarkdown(text) {
   if (!text) return '';
   try {
@@ -156,7 +130,6 @@ function renderMarkdown(text) {
   }
 }
 
-// --- Copy Button für Code-Blocks ---
 function addCopyButtons(el) {
   el.querySelectorAll('pre code').forEach(code => {
     const pre = code.parentElement;
@@ -164,13 +137,9 @@ function addCopyButtons(el) {
     const btn = document.createElement('button');
     btn.className = 'copy-btn';
     btn.textContent = '📋';
-    btn.title = 'Code kopieren';
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(code.textContent).then(() => {
         btn.textContent = '✓';
-        setTimeout(() => { btn.textContent = '📋'; }, 1500);
-      }).catch(() => {
-        btn.textContent = '❌';
         setTimeout(() => { btn.textContent = '📋'; }, 1500);
       });
     });
@@ -179,62 +148,47 @@ function addCopyButtons(el) {
   });
 }
 
-// --- Safe JSON parse helper ---
 async function safeJson(res) {
   const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('Server returned non-JSON:', text.slice(0, 200));
-    throw new Error('Server hat keine gültige JSON-Antwort zurückgegeben. Siehe Konsole.');
-  }
+  try { return JSON.parse(text); } catch (e) { throw new Error('Server error'); }
 }
 
-// --- Session Management ---
+function getHeaders() {
+  const sessionId = localStorage.getItem('sessionId');
+  return sessionId ? { 'x-session-id': sessionId } : {};
+}
 
 async function loadSessions() {
+  const storedId = localStorage.getItem('sessionId');
   try {
     const res = await fetch('/api/sessions');
     const data = await safeJson(res);
-    renderSessionList(data.sessions, data.current);
-    if (data.current) {
-      sessionInfoEl.textContent = `Session: ${data.current.slice(0, 8)}...`;
+    if (storedId) {
+      const checkRes = await fetch('/api/sessions/current', { headers: { 'x-session-id': storedId } });
+      const checkData = await safeJson(checkRes);
+      if (checkData.exists) {
+        renderSessionList(data.sessions, checkData.id);
+        sessionInfoEl.textContent = `Session: ${checkData.id.slice(0, 8)}...`;
+        return;
+      } else { localStorage.removeItem('sessionId'); }
     }
-  } catch (err) {
-    console.warn('Sessions laden fehlgeschlagen:', err);
-    sessionInfoEl.textContent = 'Fehler beim Laden';
-  }
+    renderSessionList(data.sessions, data.current);
+    if (data.current) sessionInfoEl.textContent = `Session: ${data.current.slice(0, 8)}...`;
+  } catch (err) { console.warn(err); sessionInfoEl.textContent = 'Fehler beim Laden'; }
 }
 
 function renderSessionList(sessions, currentId) {
   sessionListEl.innerHTML = '';
   if (!sessions || sessions.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'empty';
-    li.textContent = 'Noch keine Sessions';
-    sessionListEl.appendChild(li);
+    sessionListEl.innerHTML = '<li class="empty">Noch keine Sessions</li>';
     return;
   }
-  
   sessions.forEach(session => {
     const li = document.createElement('li');
     li.className = session.id === currentId ? 'active' : '';
     li.dataset.sessionId = session.id;
-    
-    const date = new Date(session.updatedAt).toLocaleString('de-DE', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-    
-    li.innerHTML = `
-      <div class="session-row">
-        <div class="session-info">
-          <div class="session-name">${session.id.slice(0, 8)}...</div>
-          <div class="session-meta">${date} · ${session.messageCount} Nachrichten</div>
-        </div>
-        ${session.id !== currentId ? '<button class="session-delete" title="Session löschen">×</button>' : ''}
-      </div>
-    `;
-    
+    const date = new Date(session.updatedAt).toLocaleString('de-DE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    li.innerHTML = `<div class="session-row"><div class="session-info"><div class="session-name">${session.id.slice(0, 8)}...</div><div class="session-meta">${date} · ${session.messageCount} Nachrichten</div></div>${session.id !== currentId ? '<button class="session-delete">×</button>' : ''}</div>`;
     li.addEventListener('click', (e) => {
       if (e.target.closest('.session-delete')) return;
       switchSession(session.id);
@@ -246,69 +200,83 @@ function renderSessionList(sessions, currentId) {
 
 async function deleteSession(id) {
   try {
-    const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-    const data = await safeJson(res);
+    const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE', headers: getHeaders() });
     if (res.ok) {
+      if (localStorage.getItem('sessionId') === id) localStorage.removeItem('sessionId');
       loadSessions();
-    } else {
-      addMsg('Fehler: ' + (data.error || 'Session konnte nicht gelöscht werden'), 'error');
     }
-  } catch (err) {
-    addMsg('Fehler beim Löschen: ' + err.message, 'error');
-  }
+  } catch (err) { console.error(err); }
 }
 
 async function switchSession(id) {
   try {
-    const res = await fetch(`/api/sessions/${id}/switch`, { method: 'POST' });
+    const res = await fetch(`/api/sessions/${id}/validate`, { method: 'POST', headers: getHeaders() });
     const data = await safeJson(res);
     if (res.ok) {
+      localStorage.setItem('sessionId', id);
       chatEl.innerHTML = '';
       addMsg(`Session gewechselt: ${id.slice(0, 8)}... (${data.messages} Nachrichten im Kontext)`, 'system');
       loadSessions();
-    } else {
-      addMsg('Fehler: ' + (data.error || 'Unbekannter Fehler'), 'error');
+      // Alten Chat-Verlauf laden und anzeigen
+      const msgRes = await fetch(`/api/sessions/${id}/messages`, { headers: getHeaders() });
+      const msgData = await safeJson(msgRes);
+      if (msgRes.ok && msgData.messages) {
+        renderMessageHistory(msgData.messages);
+      }
+    } else { addMsg('Fehler beim Wechseln', 'error'); }
+  } catch (err) { console.error(err); }
+}
+
+function renderMessageHistory(messages) {
+  if (!messages || messages.length === 0) return;
+  messages.forEach(msg => {
+    if (msg.role === 'system') return;
+    const text = extractTextFromMessage(msg);
+    if (msg.role === 'user') {
+      addMsg(text, 'user');
+    } else if (msg.role === 'assistant') {
+      const div = addMsg(text, 'assistant');
+      finalizeMsg(div);
+    } else if (msg.role === 'tool') {
+      addMsg(`✅ Ergebnis:\n${formatResult(msg.content)}`, 'tool');
     }
-  } catch (err) {
-    addMsg('Fehler beim Wechseln: ' + err.message, 'error');
+  });
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function extractTextFromMessage(msg) {
+  if (!msg.content) return '';
+  if (typeof msg.content === 'string') return msg.content;
+  if (Array.isArray(msg.content)) {
+    return msg.content.map(part => {
+      if (part.type === 'text') return part.text;
+      if (part.type === 'image_url') return '[Bild]';
+      return '';
+    }).join('');
   }
+  return '';
 }
 
 async function startNewSession() {
   try {
     const res = await fetch('/api/sessions/new', { method: 'POST' });
     const data = await safeJson(res);
+    localStorage.setItem('sessionId', data.id);
     chatEl.innerHTML = '';
     addMsg('Neue Session gestartet.', 'system');
-    if (data.id) {
-      sessionInfoEl.textContent = `Session: ${data.id.slice(0, 8)}...`;
-    }
     loadSessions();
     if (isMobile()) closeSidebar();
-  } catch (err) {
-    addMsg('Fehler: ' + err.message, 'error');
-    console.error('startNewSession error:', err);
-  }
+  } catch (err) { console.error(err); }
 }
-
-// --- Chat ---
 
 function addMsg(text, cls = 'assistant', imageUrl = null, isThink = false) {
   const div = document.createElement('div');
   div.className = 'msg ' + cls;
   div.dataset.rawText = text || '';
-
   if (isThink) {
-    div.innerHTML = `
-      <div class="think-header">
-        <span class="think-toggle">▶</span>
-        <span class="think-label">💭 Denkprozess</span>
-      </div>
-      <div class="think-content collapsed"></div>
-    `;
+    div.innerHTML = `<div class="think-header"><span class="think-toggle">▶</span><span class="think-label">💭 Denkprozess</span></div><div class="think-content collapsed"></div>`;
     const contentEl = div.querySelector('.think-content');
     contentEl.textContent = text;
-
     div.querySelector('.think-header').addEventListener('click', () => {
       const toggle = div.querySelector('.think-toggle');
       const content = div.querySelector('.think-content');
@@ -318,13 +286,7 @@ function addMsg(text, cls = 'assistant', imageUrl = null, isThink = false) {
   } else {
     div.innerHTML = renderMarkdown(text);
   }
-
-  if (imageUrl) {
-    const img = document.createElement('img');
-    img.src = imageUrl;
-    img.alt = 'Hochgeladenes Bild';
-    div.appendChild(img);
-  }
+  if (imageUrl) { const img = document.createElement('img'); img.src = imageUrl; div.appendChild(img); }
   chatEl.appendChild(div);
   if (!isThink) addCopyButtons(div);
   chatEl.scrollTop = chatEl.scrollHeight;
@@ -333,26 +295,15 @@ function addMsg(text, cls = 'assistant', imageUrl = null, isThink = false) {
 
 function appendToMsg(el, text) {
   el.dataset.rawText = (el.dataset.rawText || '') + text;
-  // Während Streaming: rohen Text anzeigen (schneller, kein Flackern)
-  // Markdown-Rendering passiert erst bei done
   const contentEl = el.querySelector('.think-content');
-  if (contentEl) {
-    contentEl.textContent = el.dataset.rawText;
-  } else {
-    el.textContent = el.dataset.rawText;
-  }
+  if (contentEl) contentEl.textContent = el.dataset.rawText; else el.textContent = el.dataset.rawText;
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function finalizeMsg(el) {
-  // Nach Streaming: Markdown rendern
   el.classList.remove('streaming');
   const contentEl = el.querySelector('.think-content');
-  if (contentEl) {
-    contentEl.innerHTML = renderMarkdown(el.dataset.rawText || '');
-  } else {
-    el.innerHTML = renderMarkdown(el.dataset.rawText || '');
-  }
+  if (contentEl) contentEl.innerHTML = renderMarkdown(el.dataset.rawText || ''); else el.innerHTML = renderMarkdown(el.dataset.rawText || '');
   addCopyButtons(el);
   chatEl.scrollTop = chatEl.scrollHeight;
 }
@@ -365,221 +316,103 @@ function setBusy(b) {
   statusEl.className = b ? 'status-busy' : 'status-idle';
 }
 
-function stop() {
-  if (abortController) {
-    abortController.abort();
-    abortController = null;
-  }
-}
+function stop() { if (abortController) { abortController.abort(); abortController = null; } }
 
 async function send() {
   const text = inputEl.value.trim();
   if ((!text && pendingFiles.length === 0) || isBusy) return;
-  
-  // Token-Verbrauch zurücksetzen
-  lastUsage = null;
-  renderUsage();
-  
-  // Zeige User-Nachricht an
-  if (text) {
-    addMsg(text, 'user');
-  }
+  lastUsage = null; renderUsage();
+  if (text) addMsg(text, 'user');
   if (pendingFiles.length > 0) {
     pendingFiles.forEach(file => {
-      if (file.type.startsWith('image/')) {
-        addMsg(`📷 ${file.name}`, 'user', URL.createObjectURL(file));
-      } else {
-        addMsg(`📎 ${file.name}`, 'user');
-      }
+      if (file.type.startsWith('image/')) addMsg(`📷 ${file.name}`, 'user', URL.createObjectURL(file));
+      else addMsg(`📎 ${file.name}`, 'user');
     });
   }
-  
-  inputEl.value = '';
-  inputEl.style.height = 'auto';
-  setBusy(true);
-
+  inputEl.value = ''; inputEl.style.height = 'auto'; setBusy(true);
   currentMsg = null;
-
   try {
     const formData = new FormData();
     if (text) formData.append('message', text);
     pendingFiles.forEach(file => formData.append('files', file));
-    
     abortController = new AbortController();
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      body: formData,
-      signal: abortController.signal,
-    });
-
-    pendingFiles = [];
-    renderUploadPreview();
-
+    const response = await fetch('/api/chat', { method: 'POST', headers: getHeaders(), body: formData, signal: abortController.signal });
+    pendingFiles = []; renderUploadPreview();
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('text/event-stream')) {
       const data = await safeJson(response);
       addMsg('❌ ' + (data.error || 'Serverfehler'), 'error');
-      setBusy(false);
-      return;
+      setBusy(false); return;
     }
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
+      const lines = buffer.split('\n'); buffer = lines.pop() || '';
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
-        const json = line.slice(6);
-        if (!json) continue;
+        const json = line.slice(6); if (!json) continue;
         try {
           const ev = JSON.parse(json);
           handleEvent(ev);
-          if (ev.type === 'done') {
-            loadSessions();
-          }
-        } catch (e) {
-          console.warn('SSE parse error:', e, 'Line:', json.slice(0, 100));
-        }
+          if (ev.type === 'done') loadSessions();
+        } catch (e) { console.warn(e); }
       }
     }
   } catch (err) {
-    if (err.name === 'AbortError') {
-      addMsg('⏹ Abgebrochen.', 'system');
-    } else {
-      addMsg('❌ Netzwerkfehler: ' + err.message, 'error');
-      console.error('send() error:', err);
-    }
-  } finally {
-    abortController = null;
-    setBusy(false);
-  }
+    if (err.name === 'AbortError') addMsg('⏹ Abgebrochen.', 'system');
+    else addMsg('❌ Netzwerkfehler: ' + err.message, 'error');
+  } finally { abortController = null; setBusy(false); }
 }
 
 function handleEvent(ev) {
   switch (ev.type) {
     case 'thought':
-      if (!document.querySelector('.msg.think:last-child')) {
-        addMsg(ev.data, 'think', null, true);
-      } else {
-        appendToMsg(document.querySelector('.msg.think:last-child'), ev.data);
-      }
+      if (!document.querySelector('.msg.think:last-child')) addMsg(ev.data, 'think', null, true);
+      else appendToMsg(document.querySelector('.msg.think:last-child'), ev.data);
       break;
     case 'tool_call': {
       let data = ev.data;
-      try {
-        const parsed = JSON.parse(ev.data);
-        data = '```json\n' + JSON.stringify(parsed, null, 2) + '\n```';
-      } catch { /* not valid JSON */ }
+      try {         data = '```json\n' + JSON.stringify(JSON.parse(ev.data), null, 2) + '\n```'; } catch {}
       addMsg(`🔧 Tool: ${ev.toolName}\n${data}`, 'tool');
       break;
     }
-    case 'tool_result':
-      const txt = ev.error ? `❌ Fehler: ${ev.error}` : `✅ Ergebnis:\n${formatResult(ev.result)}`;
-      addMsg(txt, 'tool');
-      break;
+    case 'tool_result': addMsg(ev.error ? `❌ Fehler: ${ev.error}` : `✅ Ergebnis:\n${formatResult(ev.result)}`, 'tool'); break;
     case 'content':
-      if (!currentMsg) {
-        currentMsg = addMsg(ev.data, 'assistant');
-        // Während Streaming: rohen Text anzeigen
-        currentMsg.classList.add('streaming');
-        currentMsg.textContent = currentMsg.dataset.rawText;
-      } else {
-        appendToMsg(currentMsg, ev.data);
-      }
+      if (!currentMsg) { currentMsg = addMsg(ev.data, 'assistant'); currentMsg.classList.add('streaming'); currentMsg.textContent = currentMsg.dataset.rawText; }
+      else appendToMsg(currentMsg, ev.data);
       break;
-    case 'usage':
-      lastUsage = ev.usage;
-      renderUsage();
-      break;
-    case 'done':
-      if (currentMsg) {
-        finalizeMsg(currentMsg);
-      }
-      currentMsg = null;
-      break;
-    case 'error':
-      addMsg('❌ ' + ev.error, 'error');
-      currentMsg = null;
-      break;
+    case 'usage': lastUsage = ev.usage; renderUsage(); break;
+    case 'done': if (currentMsg) finalizeMsg(currentMsg); currentMsg = null; break;
+    case 'error': addMsg('❌ ' + ev.error, 'error'); currentMsg = null; break;
   }
 }
 
 function renderUsage() {
   const el = document.getElementById('token-usage');
-  if (!el) return;
-  if (!lastUsage) {
-    el.style.display = 'none';
-    el.textContent = '';
-    return;
-  }
-  const { prompt_tokens, completion_tokens, total_tokens } = lastUsage;
-  el.innerHTML = `
-    <span class="token-pill" title="Prompt-Tokens">📝 ${prompt_tokens.toLocaleString('de-DE')}</span>
-    <span class="token-pill" title="Generierte Tokens">✨ ${completion_tokens.toLocaleString('de-DE')}</span>
-    <span class="token-pill" title="Gesamt">Σ ${total_tokens.toLocaleString('de-DE')}</span>
-  `;
+  if (!el || !lastUsage) { if(el) el.style.display='none'; return; }
+  el.innerHTML = `<span class="token-pill">📝 ${lastUsage.prompt_tokens}</span><span class="token-pill">✨ ${lastUsage.completion_tokens}</span><span class="token-pill">Σ ${lastUsage.total_tokens}</span>`;
   el.style.display = 'flex';
 }
 
-function formatResult(result) {
-  if (result === null || result === undefined) return '(leer)';
-  if (typeof result === 'string') return result;
-  try {
-    if (result.content && typeof result.content === 'string') {
-      return result.content;
-    }
-    if (result.entries && Array.isArray(result.entries)) {
-      return result.entries.map(e => {
-        const size = e.size !== undefined ? ` (${formatBytes(e.size)})` : '';
-        return `${e.type === 'directory' ? '📁' : '📄'} ${e.name}${size}`;
-      }).join('\n');
-    }
-    return '```json\n' + JSON.stringify(result, null, 2) + '\n```';
-  } catch {
-    return String(result);
-  }
+function formatResult(res) {
+  if (!res) return '(leer)';
+  if (typeof res === 'string') return res;
+  try { if (res.content) return res.content; if (res.entries)       return res.entries.map(e => `${e.type === 'directory' ? '📁' : '📄'} ${e.name}`).join('\n'); } catch {}
+  return JSON.stringify(res);
 }
 
-function formatBytes(bytes) {
-  if (bytes === undefined) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
+function formatBytes(b) { if (!b) return ''; if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 
-// --- Event Listeners ---
-
-sendBtn.addEventListener('click', () => {
-  if (isBusy) stop();
-  else send();
-});
-inputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    send();
-  }
-});
-
+sendBtn.addEventListener('click', () => { if (isBusy) stop(); else send(); });
+inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
 newSessionBtn.addEventListener('click', startNewSession);
-
 sessionListEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.session-delete');
-  if (!btn) return;
-  e.stopPropagation();
-  const li = btn.closest('li');
-  const sessionId = li?.dataset.sessionId;
-  if (sessionId) {
-    deleteSession(sessionId);
-  }
+  if (btn) { e.stopPropagation(); deleteSession(btn.closest('li').dataset.sessionId); }
 });
 
-// Init
 loadSessions();

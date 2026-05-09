@@ -1,4 +1,4 @@
-import { LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT } from "./config.js";
+import { LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT, LLM_TEMPERATURE, LLM_FREQUENCY_PENALTY, LLM_PRESENCE_PENALTY } from "./config.js";
 
 export interface TextContentPart {
   type: "text";
@@ -61,9 +61,9 @@ export async function chatCompletion(
     model: LLM_MODEL,
     messages,
     tools,
-    temperature: 0.7,
-    frequency_penalty: 0.3,
-    presence_penalty: 0.1,
+    temperature: LLM_TEMPERATURE,
+    frequency_penalty: LLM_FREQUENCY_PENALTY,
+    presence_penalty: LLM_PRESENCE_PENALTY,
     // max_tokens bewusst weggelassen → Server-Default greift (oft höher/handelbarer)
     stream,
     stream_options: { include_usage: true },

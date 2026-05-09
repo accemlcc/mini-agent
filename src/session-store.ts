@@ -81,30 +81,18 @@ export function listSessions(): { id: string; createdAt: string; updatedAt: stri
 
 export function deleteSession(sessionId: string): boolean {
   const path = getSessionPath(sessionId);
-  if (!existsSync(path)) return false;
-  try {
+  if (existsSync(path)) {
     unlinkSync(path);
     return true;
-  } catch {
-    return false;
   }
+  return false;
 }
 
-// Globale Session-ID (pro Server-Prozess)
-let currentSessionId: string | null = null;
-
-export function getCurrentSessionId(): string {
-  if (!currentSessionId) {
-    currentSessionId = generateSessionId();
-  }
-  return currentSessionId;
-}
-
-export function setCurrentSessionId(id: string): void {
-  currentSessionId = id;
-}
-
-export function resetSession(): string {
-  currentSessionId = generateSessionId();
-  return currentSessionId;
+/**
+ * Hilfsfunktion zum Laden der Nachrichten für eine spezifische Session-ID.
+ * Wird nun direkt vom Server mit der ID aus dem Header aufgerufen.
+ */
+export function getSessionMessages(sessionId: string) {
+  const session = loadSession(sessionId);
+  return session ? session.messages : [];
 }

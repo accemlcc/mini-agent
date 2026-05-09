@@ -2,17 +2,17 @@ import express, { Request, Response, NextFunction } from "express";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
-import { runAgent, getCurrentSessionMessages } from "./agent.js";
+import { runAgent } from "./agent.js";
 import { getSystemPrompt } from "./config.js";
-import type { ContentPart } from "./llm.js";
+import type { ContentPart, ChatMessage } from "./llm.js";
 import { extractPdfText } from "./pdf-parser.js";
 import {
   listSessions,
   loadSession,
-  resetSession,
-  setCurrentSessionId,
-  getCurrentSessionId,
+  saveSession,
   deleteSession,
+  getSessionMessages,
+  generateSessionId,
 } from "./session-store.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,34 +37,41 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 app.get("/api/sessions", (_req, res) => {
   try {
     const sessions = listSessions();
-    res.json({ sessions, current: getCurrentSessionId() });
+    res.json({ sessions });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post("/api/sessions/new", (_req, res) => {
-  const newId = resetSession();
+  const newId = generateSessionId();
+  const now = new Date().toISOString();
+  saveSession({ id: newId, createdAt: now, updatedAt: now, messages: [] });
   res.json({ id: newId, message: "Neue Session gestartet." });
 });
 
-app.post("/api/sessions/:id/switch", (req, res) => {
+app.post("/api/sessions/:id/validate", (req, res) => {
   const { id } = req.params;
   const session = loadSession(id);
   if (!session) {
     res.status(404).json({ error: "Session nicht gefunden." });
     return;
   }
-  setCurrentSessionId(id);
-  res.json({ id, message: "Session gewechselt.", messages: session.messages.length });
+  res.json({ id, message: "Session gültig.", messages: session.messages.length });
+});
+
+app.get("/api/sessions/:id/messages", (req, res) => {
+  const { id } = req.params;
+  const session = loadSession(id);
+  if (!session) {
+    res.status(404).json({ error: "Session nicht gefunden." });
+    return;
+  }
+  res.json({ id, messages: session.messages });
 });
 
 app.delete("/api/sessions/:id", (req, res) => {
   const { id } = req.params;
-  if (id === getCurrentSessionId()) {
-    res.status(400).json({ error: "Aktive Session kann nicht gelöscht werden." });
-    return;
-  }
   const ok = deleteSession(id);
   if (ok) {
     res.json({ message: "Session gelöscht." });
@@ -73,11 +80,11 @@ app.delete("/api/sessions/:id", (req, res) => {
   }
 });
 
-app.get("/api/sessions/current", (_req, res) => {
-  const id = getCurrentSessionId();
-  const session = loadSession(id);
+app.get("/api/sessions/current", (req, res) => {
+  const sessionId = req.headers["x-session-id"] as string;
+  const session = sessionId ? loadSession(sessionId) : null;
   res.json({
-    id,
+    id: sessionId || null,
     exists: !!session,
     messageCount: session?.messages.length || 0,
   });
@@ -86,6 +93,12 @@ app.get("/api/sessions/current", (_req, res) => {
 // --- Chat API ---
 
 app.post("/api/chat", upload.array("files", 5), async (req, res) => {
+  const sessionId = req.headers["x-session-id"] as string;
+  if (!sessionId) {
+    res.status(400).json({ error: "Keine Session-ID im Header gefunden (x-session-id)." });
+    return;
+  }
+
   const body = req.body || {};
   const message = body.message || "";
   const files = req.files as Express.Multer.File[] | undefined;
@@ -102,9 +115,11 @@ app.post("/api/chat", upload.array("files", 5), async (req, res) => {
   };
 
   try {
-    const existingMessages = getCurrentSessionMessages();
-    const useExisting = existingMessages.length > 1;
-    const messages = useExisting ? existingMessages : [{ role: "system" as const, content: getSystemPrompt() }];
+    const existingMessages = getSessionMessages(sessionId);
+    const messages: ChatMessage[] = [{ role: "system" as const, content: getSystemPrompt() }];
+    if (existingMessages.length > 0) {
+      messages.push(...existingMessages);
+    }
 
     // User-Nachricht bauen (text + optional Bilder)
     const contentParts: ContentPart[] = [];
@@ -156,7 +171,7 @@ app.post("/api/chat", upload.array("files", 5), async (req, res) => {
 
     messages.push({ role: "user", content: contentParts });
 
-    for await (const event of runAgent(message, messages)) {
+    for await (const event of runAgent(message, sessionId, messages)) {
       sendEvent(event);
       if (event.type === "done" || event.type === "error") {
         break;
