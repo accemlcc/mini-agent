@@ -2,10 +2,65 @@
 """
 Edit-Tool für den Mini-Agent.
 Ersetzt oldString durch newString in einer Datei.
+Führt nach dem Edit automatisch Syntax-Validierung durch (JSON, JS/TS, Python).
+Bei Syntaxfehler wird ein Rollback durchgeführt.
 """
 import sys
 import json
 import os
+import subprocess
+
+
+def validate_syntax(path: str, content: str, ext: str) -> tuple[bool, str]:
+    """
+    Prüft die Syntax der geänderten Datei.
+    Gibt (ok, error_message) zurück.
+    """
+    if ext == ".json":
+        try:
+            json.loads(content)
+            return True, ""
+        except json.JSONDecodeError as e:
+            return False, f"JSON Syntaxfehler: {e}"
+
+    elif ext in (".js", ".ts"):
+        try:
+            result = subprocess.run(
+                ["node", "--check", path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                err = result.stderr.strip() if result.stderr else "Unbekannter JS/TS Fehler"
+                return False, f"JS/TS Syntaxfehler: {err}"
+            return True, ""
+        except FileNotFoundError:
+            # node nicht installiert – nicht blockieren
+            return True, ""
+        except subprocess.TimeoutExpired:
+            return False, "JS/TS Syntax-Check: Timeout"
+        except Exception as e:
+            return False, f"JS/TS Check fehlgeschlagen: {e}"
+
+    elif ext == ".py":
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "py_compile", path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                err = result.stderr.strip() if result.stderr else "Unbekannter Python Fehler"
+                return False, f"Python Syntaxfehler: {err}"
+            return True, ""
+        except subprocess.TimeoutExpired:
+            return False, "Python Syntax-Check: Timeout"
+        except Exception as e:
+            return False, f"Python Check fehlgeschlagen: {e}"
+
+    return True, ""
 
 
 def edit_file(path: str, old_string: str, new_string: str) -> dict:
@@ -30,11 +85,33 @@ def edit_file(path: str, old_string: str, new_string: str) -> dict:
 
     new_content = content.replace(old_string, new_string, 1)
 
+    # Schreiben
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
     except Exception as e:
         return {"success": False, "error": f"Schreibfehler: {e}"}
+
+    # Syntax-Validierung
+    _, ext = os.path.splitext(path)
+    ext = ext.lower()
+
+    if ext in (".json", ".js", ".ts", ".py"):
+        ok, error = validate_syntax(path, new_content, ext)
+        if not ok:
+            # ROLLBACK: alten Inhalt zurückschreiben
+            try:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(content)
+            except Exception as rb_err:
+                return {
+                    "success": False,
+                    "error": f"{error}\nROLLBACK FEHLGESCHLAGEN: {rb_err}",
+                }
+            return {
+                "success": False,
+                "error": f"{error}\nEdit wurde rückgängig gemacht (Rollback).",
+            }
 
     # Diff-Statistik
     old_lines = content.splitlines()
